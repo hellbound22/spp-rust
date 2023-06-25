@@ -2,8 +2,6 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
-
 use bit_vec::BitVec;
 
 pub const OCTET: usize = 8;
@@ -47,7 +45,7 @@ impl Builder {
         data.sec_header(&self.sec_head);
         data.user_data(&self.user_data);
 
-        let final_lenght: usize = pri_head.lenght() + data.lenght();
+        let final_lenght: usize = data.lenght() / 8;
         pri_head.data_lenght(final_lenght);
         
         let sp = SpacePacket::new(pri_head, data);
@@ -56,9 +54,10 @@ impl Builder {
     }
 }
 
+#[derive(Debug)]
 pub struct SpacePacket {
     primary_header: PrimaryHeader,
-    data_field: DataField,
+    pub data_field: DataField,
 }
 
 
@@ -82,7 +81,8 @@ impl SpacePacket {
     }
 }
 
-struct DataField {
+#[derive(Debug)]
+pub struct DataField {
     sec_header: Option<SecondaryHeader>, // WARN: 4.1.4.2.1.3 | See Notes 2
     user_data: BitVec, // WARN: shall contain at least one octet.
 }
@@ -108,7 +108,7 @@ impl DataField {
         self.sec_header = data.clone()
     }
 
-    fn to_bits(&self) -> BitVec {
+    pub fn to_bits(&self) -> BitVec {
         if let Some(head) = &self.sec_header {
             let mut x = head.clone().to_bits();
             x.extend(&self.user_data);
@@ -120,7 +120,7 @@ impl DataField {
 }
 
 // https://sanaregistry.org/r/space_packet_protocol_secondary_header_format_document.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SecondaryHeader {
     time_code: BitVec, // TODO: See Note 4.1.4.2.2.2
     ancillary: BitVec, // WARN: 4.1.4.3.2
@@ -144,11 +144,11 @@ impl SecondaryHeader {
     }
 }
 
+#[derive(Debug)]
 struct PrimaryHeader {
     version_number: BitVec, // 3 bits
     id: Identification,
     sequence_control: SequenceControl,
-    // TODO: 4.1.3.5
     data_length: BitVec, // 16 bits
 }
 
@@ -156,20 +156,14 @@ impl PrimaryHeader {
     fn new(id: &Identification, seq: &SequenceControl) -> Self {
         Self {version_number: BitVec::from_elem(3, false), id: id.clone(), sequence_control: seq.clone(), data_length: BitVec::from_elem(16, false)}
     }
-    fn lenght(&self) -> usize {
-        self.version_number.len() + self.id.lenght() + self.sequence_control.lenght() + self.data_length.len()
-    }
 
-    fn id(&mut self, data: Identification) {
-        self.id = data
-    }
-
-    fn sequence_control(&mut self, data: SequenceControl) {
-        self.sequence_control = data
-    }
-
+    // NOTE: 4.1.3.5
     fn data_lenght(&mut self, size: usize) {
-        self.data_length = BitVec::from_bytes(&size.to_ne_bytes());
+        // TODO: Check if 'size' does not exceed 2 OCTETS
+        let number = &size.to_be_bytes()[6..];
+        let v = BitVec::from_bytes(number);
+        
+        self.data_length = v
     }
 
     fn to_bits(&self) -> BitVec {
@@ -184,7 +178,7 @@ impl PrimaryHeader {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum PacketType {
     Telemetry,
     Telecommand,
@@ -197,13 +191,9 @@ impl PacketType {
             Self::Telemetry => false,
         }
     }
-
-    fn lenght() -> usize {
-        1
-    }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum SecHeaderFlag {
     Present,
     NotPresent,
@@ -218,17 +208,13 @@ impl SecHeaderFlag {
             Self::Idle => false,
         }
     }
-
-    fn lenght() -> usize {
-        1
-    }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Identification {
     packet_type: PacketType,
     sec_header_flag: SecHeaderFlag, // For Idle Packets: '0'
-    app_process_id:  BitVec // 11 bits //[bool; 11], // For Idle Packets: '11111111111' | TODO: implement this?
+    app_process_id:  BitVec // 11 bits // For Idle Packets: '11111111111'
 }
 
 impl Identification {
@@ -242,10 +228,6 @@ impl Identification {
             app_process_id: BitVec::from_elem(11, true)}
     }
 
-    fn lenght(&self) -> usize {
-        SecHeaderFlag::lenght() + PacketType::lenght() + 11 // App_process_id lenght
-    }
-
     fn to_bits(&self) -> BitVec {
         let mut aux = BitVec::new();
         match self.packet_type.to_bool() {
@@ -256,19 +238,13 @@ impl Identification {
             x => aux.push(x)
         }
 
-        aux.extend(&self.app_process_id);
+        aux.extend(&self.app_process_id); // TODO: Check for 11 bits
         aux
     }
 }
 
-fn u8_slice_to_bool_array(u8_slice: &[u8]) -> Result<[bool; 11], &'static str> {
-    let bool_vec: Vec<bool> = u8_slice.iter().map(|&byte| byte != 0).collect();
-    bool_vec.try_into().map_err(|_| "Conversion failed")
-}
-
 // WARN: 4.1.3.4.2.3
-
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum SeqFlags {
     Continuation,
     First,
@@ -285,14 +261,10 @@ impl SeqFlags {
             Self::Unsegmented => [true, true],
         }
     }
-
-    fn lenght(&self) -> usize {
-        2
-    }
 }
 
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SequenceControl {
     sequence_flags: SeqFlags,
 
@@ -304,13 +276,8 @@ pub struct SequenceControl {
 }
 
 impl SequenceControl {
-    // TODO: change count param to BitVec
     pub fn new(flag: SeqFlags, count: BitVec) -> Self {
         Self { sequence_flags: flag, sequence_count_pkg_name: count }
-    }
-    // TODO: this can be static
-    fn lenght(&self) -> usize {
-        self.sequence_flags.lenght() + self.sequence_count_pkg_name.len()
     }
 
     fn to_bits(&self) -> BitVec {
@@ -319,7 +286,7 @@ impl SequenceControl {
             aux.push(b);
         }
         
-        aux.extend(&self.sequence_count_pkg_name);
+        aux.extend(&self.sequence_count_pkg_name); // TODO: check for 14 bits
         aux
     }
 }
