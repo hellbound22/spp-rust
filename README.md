@@ -3,7 +3,7 @@
 
 [Link to the standard](https://public.ccsds.org/Pubs/133x0b2e1.pdf)
 
-`[no_std]` compliant, although it uses the `alloc` and `bitvec` crates
+`[no_std]` compliant, although it uses the `bitvec` crate
 
 
 ### Roadmap
