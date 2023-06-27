@@ -36,16 +36,25 @@ impl Builder {
     }
 
     pub fn build(&mut self) -> Result<SpacePacket, SPPError> {
+        let (id, seq) = match (&self.id, &self.seq) {
+            (None, None) => return Err(SPPError::MandatoryFieldNotPresent),
+            (None, _) => return Err(SPPError::MandatoryFieldNotPresent),
+            (_, None) => return Err(SPPError::MandatoryFieldNotPresent),
+            (id, seq) => (id.clone().unwrap(), seq.clone().unwrap()),
+        };
+
         if self.idle {
-            let new_id = Identification::new_idle(self.id.as_ref().unwrap().packet_type.clone());
+            let new_id = Identification::new_idle(id.packet_type.clone());
             self.identification(Some(new_id));
         }
-
-        let mut pri_head = PrimaryHeader::new(self.id.as_ref().unwrap(), self.seq.as_ref().unwrap());
+        
+        let mut pri_head = PrimaryHeader::new(&id, &seq);
         let mut data = DataField::new();
 
-        if let SecHeaderFlag::Present = self.id.as_ref().unwrap().sec_header_flag {
-            if self.sec_head.is_none() || self.sec_head.as_ref().unwrap().len() < 1 {
+        if let SecHeaderFlag::Present = id.sec_header_flag {
+            if self.sec_head.is_none() {
+                return Err(SPPError::SecondaryHeaderNotPresent);
+            } else if self.sec_head.as_ref().unwrap().len() < 1 {
                 return Err(SPPError::SecondaryHeaderNotPresent);
             }
         }

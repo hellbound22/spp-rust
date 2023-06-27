@@ -5,4 +5,5 @@ pub enum SPPError {
     APIDLenMismatch,
     SequenceControlLenMismatch,
     SecondaryHeaderNotPresent,
+    MandatoryFieldNotPresent,
 }

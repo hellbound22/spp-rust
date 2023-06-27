@@ -12,7 +12,7 @@ impl DataField {
     }
 
     pub fn len(&self) -> usize {
-        self.sec_header.as_ref().unwrap_or(&SecondaryHeader::new()).len() + self.user_data.as_ref().unwrap_or(&BitVec::new()).len()
+        self.sec_header.as_ref().unwrap_or(&SecondaryHeader::new(None, None)).len() + self.user_data.as_ref().unwrap_or(&BitVec::new()).len()
     }
 
     pub fn user_data(&mut self, data: &Option<BitVec>) {
@@ -39,23 +39,26 @@ impl DataField {
 // https://sanaregistry.org/r/space_packet_protocol_secondary_header_format_document : Still a canditate
 #[derive(Clone, Debug)]
 pub struct SecondaryHeader {
-    time_code: BitVec, // TODO: Implement timecode formats See Note 4.1.4.2.2.2
-    ancillary: BitVec, // WARN: 4.1.4.3.2
+    time_code: Option<BitVec>, // TODO: Implement timecode formats See Note 4.1.4.2.2.2
+    ancillary: Option<BitVec>, // WARN: 4.1.4.3.2
 }
 
 impl SecondaryHeader {
-    fn new() -> Self {
-        Self { time_code: BitVec::new(), ancillary: BitVec::new() }
+    pub fn new(time_code: Option<BitVec>, ancillary: Option<BitVec>) -> Self {
+        Self { time_code, ancillary }
     }
     pub fn len(&self) -> usize {
-        self.time_code.len() + self.ancillary.len()
+        self.time_code.as_ref().unwrap_or(&BitVec::new()).len() + self.ancillary.as_ref().unwrap_or(&BitVec::new()).len()
     }
 
     fn to_bits(&self) -> BitVec {
         let mut comp = BitVec::new();
-
-        comp.extend(&self.time_code);
-        comp.extend(&self.ancillary);
+        if let Some(time_code) = &self.time_code {
+            comp.extend(time_code);
+        }
+        if let Some(ancillary) = &self.ancillary {
+            comp.extend(ancillary);
+        }
 
         comp
     }
