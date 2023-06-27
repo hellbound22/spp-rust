@@ -1,11 +1,13 @@
 use bit_vec::BitVec;
 
+use crate::errors::SPPError;
+
 #[derive(Debug)]
 pub struct PrimaryHeader {
-    version_number: BitVec, // 3 bits
-    id: Identification,
-    sequence_control: SequenceControl,
-    data_length: BitVec, // 16 bits
+    version_number: BitVec,             // 3 bits
+    id: Identification,                 // 13 bits
+    sequence_control: SequenceControl,  // 16 bits
+    data_length: BitVec,                // 16 bits
 }
 
 impl PrimaryHeader {
@@ -15,7 +17,6 @@ impl PrimaryHeader {
 
     // NOTE: 4.1.3.5
     pub fn data_lenght(&mut self, size: usize) {
-        // TODO: Check if 'size' does not exceed 2 OCTETS
         let number = &size.to_be_bytes()[6..];
         let v = BitVec::from_bytes(number);
         
@@ -68,15 +69,18 @@ impl SecHeaderFlag {
 
 #[derive(Debug, Clone)]
 pub struct Identification {
-    packet_type: PacketType,
-    sec_header_flag: SecHeaderFlag, // For Idle Packets: '0'
+    pub packet_type: PacketType,
+    pub sec_header_flag: SecHeaderFlag, // For Idle Packets: '0'
     app_process_id:  BitVec // 11 bits // For Idle Packets: '11111111111'
 }
 
 impl Identification {
-    // TODO: Check for bit count
-    pub fn new(t: PacketType, head: SecHeaderFlag, app: BitVec ) -> Self {
-        Self { packet_type: t, sec_header_flag: head, app_process_id: app }
+    pub fn new(t: PacketType, head: SecHeaderFlag, app: BitVec ) -> Result<Self, SPPError> {
+        if app.len() != 11 {
+            return Err(SPPError::APIDLenMismatch); // APID is more than 11 bits
+        }
+
+        Ok(Self { packet_type: t, sec_header_flag: head, app_process_id: app })
     }
 
     pub fn new_idle(t: PacketType) -> Self {
@@ -94,7 +98,7 @@ impl Identification {
             x => aux.push(x)
         }
 
-        aux.extend(&self.app_process_id); // TODO: Check for 11 bits
+        aux.extend(&self.app_process_id);
         aux
     }
 }
@@ -132,8 +136,11 @@ pub struct SequenceControl {
 }
 
 impl SequenceControl {
-    pub fn new(flag: SeqFlags, count: BitVec) -> Self {
-        Self { sequence_flags: flag, sequence_count_pkg_name: count }
+    pub fn new(flag: SeqFlags, count: BitVec) -> Result<Self, SPPError> {
+        if count.len() != 14 {
+            return Err(SPPError::SequenceControlLenMismatch); // Sequence count/pkg name is more than 14 bits
+        }
+        Ok(Self { sequence_flags: flag, sequence_count_pkg_name: count })
     }
 
     fn to_bits(&self) -> BitVec {
@@ -142,7 +149,7 @@ impl SequenceControl {
             aux.push(b);
         }
         
-        aux.extend(&self.sequence_count_pkg_name); // TODO: check for 14 bits
+        aux.extend(&self.sequence_count_pkg_name);
         aux
     }
 }

@@ -1,7 +1,9 @@
 use bit_vec::BitVec;
 
-use crate::pri_header::{Identification, SequenceControl, PrimaryHeader};
+use crate::{OCTET, PRIMARY_HEADER, MAX_DATA_SIZE};
+use crate::pri_header::{Identification, SequenceControl, PrimaryHeader, SecHeaderFlag};
 use crate::data::{DataField, SecondaryHeader};
+use crate::errors::SPPError;
 
 #[derive(Default)]
 pub struct Builder {
@@ -33,18 +35,37 @@ impl Builder {
         self.user_data = user_data
     }
 
-    // TODO: change error type
-    // TODO: Implement idle behaviour
-    pub fn build(&mut self) -> Result<SpacePacket, u8> {
+    pub fn build(&mut self) -> Result<SpacePacket, SPPError> {
+        if self.idle {
+            let new_id = Identification::new_idle(self.id.as_ref().unwrap().packet_type.clone());
+            self.identification(Some(new_id));
+        }
+
         let mut pri_head = PrimaryHeader::new(self.id.as_ref().unwrap(), self.seq.as_ref().unwrap());
         let mut data = DataField::new();
+
+        if let SecHeaderFlag::Present = self.id.as_ref().unwrap().sec_header_flag {
+            if self.sec_head.is_none() || self.sec_head.as_ref().unwrap().len() < 1 {
+                return Err(SPPError::SecondaryHeaderNotPresent);
+            }
+        }
+
         data.sec_header(&self.sec_head);
         data.user_data(&self.user_data);
 
-        let final_lenght: usize = data.len() / 8;
+        let final_lenght: usize = data.len() / OCTET;
+
+        if final_lenght > MAX_DATA_SIZE {
+            return Err(SPPError::MaxDataSizeExedded); // Total data size exceeds max data size
+        }
+
         pri_head.data_lenght(final_lenght);
         
         let sp = SpacePacket::new(pri_head, data);
+
+        if sp.data_field.len() < OCTET {
+            return Err(SPPError::MinDataLen); // Data field must be at least 1 octet long
+        }
 
         Ok(sp)
     }
@@ -53,7 +74,7 @@ impl Builder {
 #[derive(Debug)]
 pub struct SpacePacket {
     primary_header: PrimaryHeader,
-    pub data_field: DataField,
+    data_field: DataField,
 }
 
 
@@ -74,5 +95,9 @@ impl SpacePacket {
         bit_rep.extend(&self.data_field.to_bits());
 
         bit_rep
+    }
+
+    pub fn len(&self) -> usize {
+        self.data_field.len() + PRIMARY_HEADER
     }
 }

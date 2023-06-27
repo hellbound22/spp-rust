@@ -1,7 +1,11 @@
 [package]
-name = "space-packet-protocol"
+name = "spp-rust"
+description = "An implementation of the CCSDS 133.0-B-2 Recommended Standard"
+repository = "https://github.com/hellbound22/spp-rust"
+authors = ["Rodrigo Mauricio <rodrigomauricio@protonmail.com>"]
 version = "0.1.0"
 edition = "2021"
+license = "GPL-3.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
