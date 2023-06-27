@@ -1,5 +1,5 @@
 use bit_vec::BitVec;
-use space_packet_protocol::*;
+use space_packet_protocol::{packet::SpacePacket, pri_header::{Identification, PacketType, SequenceControl, SeqFlags}};
 
 
 #[test]
