@@ -1,6 +1,6 @@
-use bit_vec::BitVec;
+use bitvec::prelude::*;
 
-use crate::{OCTET, PRIMARY_HEADER, MAX_DATA_SIZE};
+use crate::{OCTET, PRIMARY_HEADER_SIZE, MAX_DATA_SIZE};
 use crate::pri_header::{Identification, SequenceControl, PrimaryHeader, SecHeaderFlag};
 use crate::data::{DataField, SecondaryHeader};
 use crate::errors::SPPError;
@@ -80,6 +80,8 @@ impl Builder {
     }
 }
 
+
+/// to_octet_string not implemented because it requires use of Vec, which should be a choice for the user of the library
 #[derive(Debug)]
 pub struct SpacePacket {
     primary_header: PrimaryHeader,
@@ -90,6 +92,20 @@ pub struct SpacePacket {
 impl SpacePacket {
     fn new(ph: PrimaryHeader, df: DataField) -> Self {
         Self { primary_header: ph, data_field: df }
+    }
+
+    pub fn new_from_octet_string(st: &BitVec) -> Self {
+        /*
+        let octets = st.to_bytes();
+        let raw_pri_header = octets.get(..PRIMARY_HEADER_SIZE).unwrap(); // TODO: treat this
+        let raw_data_field = octets.get(PRIMARY_HEADER_SIZE..).unwrap(); // TODO: treat this
+
+        let primary_header = PrimaryHeader::new_from_octet_string(BitVec::from_bytes(raw_pri_header));
+        let data_field = DataField::new_from_octet_string(BitVec::from_bytes(raw_data_field));
+
+        Self {primary_header, data_field}
+        */
+        unimplemented!()
     }
     
     pub fn builder() -> Builder {
@@ -107,6 +123,6 @@ impl SpacePacket {
     }
 
     pub fn len(&self) -> usize {
-        self.data_field.len() + PRIMARY_HEADER
+        self.data_field.len() + PRIMARY_HEADER_SIZE
     }
 }

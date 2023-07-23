@@ -1,4 +1,4 @@
-use bit_vec::BitVec;
+use bitvec::prelude::*;
 
 use crate::errors::SPPError;
 
@@ -7,18 +7,18 @@ pub struct PrimaryHeader {
     version_number: BitVec,             // 3 bits
     id: Identification,                 // 13 bits
     sequence_control: SequenceControl,  // 16 bits
-    data_length: BitVec,                // 16 bits
+    data_length: BitVec<u16, Msb0>,                // 16 bits
 }
 
 impl PrimaryHeader {
     pub fn new(id: &Identification, seq: &SequenceControl) -> Self {
-        Self {version_number: BitVec::from_elem(3, false), id: id.clone(), sequence_control: seq.clone(), data_length: BitVec::from_elem(16, false)}
+        Self {version_number: bitvec![0; 3], id: id.clone(), sequence_control: seq.clone(), data_length: bitvec![u16, Msb0; 0; 16]}
     }
 
     // NOTE: 4.1.3.5
     pub fn data_lenght(&mut self, size: usize) {
-        let number = &size.to_be_bytes()[6..];
-        let v = BitVec::from_bytes(number);
+        // TODO: this does not fail if size is bigger than u16_max
+        let v: BitVec<u16, Msb0> = BitVec::from_slice(&[size as u16]);
         
         self.data_length = v
     }
@@ -33,6 +33,21 @@ impl PrimaryHeader {
 
         bit_rep
     }
+
+    pub fn new_from_octet_string(st: BitVec) -> Self {
+    
+        /* 
+        Self {
+            version_number: v
+            id: 
+            sequence_control: 
+            data_lenght: 
+        }
+        */
+
+        unimplemented!()
+    }
+
 }
 
 #[derive(Debug, Clone)]
@@ -85,7 +100,7 @@ impl Identification {
 
     pub fn new_idle(t: PacketType) -> Self {
         Self { packet_type: t, sec_header_flag: SecHeaderFlag::Idle, 
-            app_process_id: BitVec::from_elem(11, true)}
+            app_process_id: bitvec![1; 11]}
     }
 
     fn to_bits(&self) -> BitVec {

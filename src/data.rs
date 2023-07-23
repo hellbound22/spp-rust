@@ -1,4 +1,4 @@
-use bit_vec::BitVec;
+use bitvec::prelude::*;
 
 #[derive(Debug)]
 pub struct DataField {
@@ -9,6 +9,10 @@ pub struct DataField {
 impl DataField {
     pub fn new() -> Self {
         Self { sec_header: None, user_data: None }
+    }
+
+    pub fn new_from_octet_string(st: BitVec) -> Self {
+        unimplemented!()
     }
 
     pub fn len(&self) -> usize {
