@@ -1,4 +1,4 @@
-//#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_std)]
 
 pub const OCTET: usize = 8;
 pub const MAX_DATA_SIZE: usize = 65536;

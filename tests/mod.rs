@@ -12,7 +12,8 @@ fn test_output() {
     let mut builder = SpacePacket::builder();
 
     let id = Identification::new_idle(PacketType::Telemetry);
-    let seq = SequenceControl::new(SeqFlags::Unsegmented, bitvec![1; 14]).unwrap();
+    let ba =  bitarr!(u16, LocalBits; 0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1);
+    let seq = SequenceControl::new(SeqFlags::Unsegmented, ba).unwrap();
     
     builder.identification(Some(id));
     builder.sequence_control(Some(seq));
@@ -22,18 +23,19 @@ fn test_output() {
 
     let sp = builder.build().unwrap();
  
-    dbg!(&sp);
-    dbg!(&sp.to_bits());
+    //dbg!(&sp);
+    //dbg!(&sp.to_bits());
 
-    assert_eq!(sp.len(), MIN_SP_SIZE_BITS);
+    assert_eq!(sp.to_bits().len(), MIN_SP_SIZE_BITS);
 }
 
 #[test]
 fn test_sec_header_req() {
     let mut builder = SpacePacket::builder();
 
-    let id = Identification::new(PacketType::Telemetry, spp_rust::pri_header::SecHeaderFlag::Present, bitvec![0; 11]).unwrap();
-    let seq = SequenceControl::new(SeqFlags::Unsegmented, bitvec![0; 14]).unwrap();
+    let id = Identification::new(PacketType::Telemetry, spp_rust::pri_header::SecHeaderFlag::Present, bitarr![0; 11]).unwrap();
+    let ba =  bitarr!(u16, LocalBits; 0;14);
+    let seq = SequenceControl::new(SeqFlags::Unsegmented, ba).unwrap();
     let sec_head = SecondaryHeader::new(Some(bitvec![1; 8]), None);
     
     builder.identification(Some(id));
