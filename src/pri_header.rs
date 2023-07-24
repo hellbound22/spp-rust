@@ -7,7 +7,7 @@ pub struct PrimaryHeader {
     version_number: BitArray,             // 3 bits
     id: Identification,                 // 13 bits
     sequence_control: SequenceControl,  // 16 bits
-    data_length: BitArr!(for 16, in u16, Msb0),                // 16 bits
+    pub data_length: BitArr!(for 16, in u16, Msb0),                // 16 bits
 }
 
 impl PrimaryHeader {
@@ -25,29 +25,35 @@ impl PrimaryHeader {
         m.clone_from_bitslice(v);
     }
 
-    pub fn to_bits(&self) -> BitVec {
-        let mut bit_rep = BitVec::new();
+    pub fn to_bits(&self) -> BitArr!(for 16) {
+        let mut bit_rep = bitarr!(0; 16);
 
-        bit_rep.extend(&self.version_number[..3]);
-        bit_rep.extend(&self.id.to_bits());
-        bit_rep.extend(&self.sequence_control.to_bits()[..16]);
-        bit_rep.extend(&self.data_length);
+        for mut mb in bit_rep[..3].iter_mut() {
+            for b in self.version_number[..3].iter() {
+                *mb = *b;
+            }
+        }
+
+        for mut mb in bit_rep[3..16].iter_mut() {
+            for b in self.id.to_bits().iter() {
+                *mb = *b;
+            }
+        }
+
+        for mut mb in bit_rep[16..32].iter_mut() {
+            for b in self.sequence_control.to_bits()[..16].iter() {
+                *mb = *b;
+            }
+        }
+
+        for mut mb in bit_rep[32..48].iter_mut() {
+            for b in self.data_length.iter() {
+                *mb = *b;
+            }
+        }
+
 
         bit_rep
-    }
-
-    fn new_from_octet_string(st: BitVec) -> Self {
-    
-        /* 
-        Self {
-            version_number: v
-            id: 
-            sequence_control: 
-            data_lenght: 
-        }
-        */
-
-        unimplemented!()
     }
 
 }
@@ -105,17 +111,23 @@ impl Identification {
             app_process_id: bitarr![1; 11]}
     }
 
-    fn to_bits(&self) -> BitVec {
-        let mut aux = BitVec::new();
-        match self.packet_type.to_bool() {
-            x => aux.push(x)
+    fn to_bits(&self) -> BitArr!(for 16) {
+        let mut aux = bitarr!(0;16);
+        {
+            let mut pt = aux.get_mut(0).unwrap();
+            *pt = self.packet_type.to_bool();
+        }
+        {
+            let mut sf = aux.get_mut(1).unwrap();
+            *sf = self.sec_header_flag.to_bool();
+        }
+        
+        for mut mb in aux[2..].iter_mut() {
+            for b in self.app_process_id[..11].iter() {
+                *mb = *b;
+            }
         }
 
-        match self.sec_header_flag.to_bool() {
-            x => aux.push(x)
-        }
-
-        aux.extend(&self.app_process_id[..11]);
         aux
     }
 }
@@ -164,13 +176,21 @@ impl SequenceControl {
         Ok(Self { sequence_flags: flag, sequence_count_pkg_name: count })
     }
 
-    fn to_bits(&self) -> BitVec {
-        let mut aux = BitVec::new();
-        for b in self.sequence_flags.to_bool() {
-            aux.push(b);
+    fn to_bits(&self) -> BitArr!(for 16) {
+        let mut aux = bitarr!(0; 16);
+
+        for mut mb in aux.iter_mut() {
+            for b in self.sequence_flags.to_bool().iter() {
+                *mb = *b;
+            }
         }
         
-        aux.extend(&self.sequence_count_pkg_name[..14]);
+        for mut mb in aux[2..].iter_mut() {
+            for b in self.sequence_count_pkg_name[..14].iter() {
+                *mb = *b;
+            }
+        }
+        
         aux
     }
 }

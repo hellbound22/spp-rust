@@ -18,7 +18,7 @@ fn test_output() {
     builder.identification(Some(id));
     builder.sequence_control(Some(seq));
 
-    let data = bitvec![0; 8];
+    let data: &BitSlice<u8> = bits!(u8, LocalBits; 1,8);
     builder.user_data(Some(data));
 
     let sp = builder.build().unwrap();
@@ -36,13 +36,16 @@ fn test_sec_header_req() {
     let id = Identification::new(PacketType::Telemetry, spp_rust::pri_header::SecHeaderFlag::Present, bitarr![0; 11]).unwrap();
     let ba =  bitarr!(u16, LocalBits; 0;14);
     let seq = SequenceControl::new(SeqFlags::Unsegmented, ba).unwrap();
-    let sec_head = SecondaryHeader::new(Some(bitvec![1; 8]), None);
+
+    let tc = bitarr!(usize, LocalBits; 1; 65536);
+
+    let sec_head = SecondaryHeader::new(Some(tc), None);
     
     builder.identification(Some(id));
     builder.sequence_control(Some(seq));
     builder.secondary_header(Some(sec_head));
-
-    let data = bitvec![1; 8];
+    
+    let data: &BitSlice<u8> = bits!(u8, LocalBits; 1,8);
     builder.user_data(Some(data));
 
     let sp = builder.build().unwrap();

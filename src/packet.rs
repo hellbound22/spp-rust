@@ -6,15 +6,15 @@ use crate::data::{DataField, SecondaryHeader};
 use crate::errors::SPPError;
 
 #[derive(Default)]
-pub struct Builder {
+pub struct Builder<'a> {
     id: Option<Identification>,
     seq: Option<SequenceControl>,
     sec_head: Option<SecondaryHeader>,
-    user_data: Option<BitVec>,
+    user_data: Option<&'a BitSlice<u8>>,
     idle: bool,
 }
 
-impl Builder {
+impl<'a> Builder<'a> {
     pub fn idle(&mut self, set: bool) {
         self.idle = set
     }
@@ -31,7 +31,7 @@ impl Builder {
         self.sec_head = sec_head
     }
 
-    pub fn user_data(&mut self, user_data: Option<BitVec>) {
+    pub fn user_data(&mut self, user_data: Option<&'a BitSlice<u8>>) {
         self.user_data = user_data
     }
 
@@ -60,7 +60,7 @@ impl Builder {
         }
 
         data.sec_header(&self.sec_head);
-        data.user_data(&self.user_data);
+        data.user_data(self.user_data);
 
         let final_lenght: usize = data.len() / OCTET;
 
@@ -81,7 +81,6 @@ impl Builder {
 }
 
 
-/// to_octet_string not implemented because it requires use of Vec, which should be a choice for the user of the library
 #[derive(Debug)]
 pub struct SpacePacket {
     primary_header: PrimaryHeader,
@@ -93,31 +92,22 @@ impl SpacePacket {
     fn new(ph: PrimaryHeader, df: DataField) -> Self {
         Self { primary_header: ph, data_field: df }
     }
-
-    pub fn new_from_octet_string(st: &BitVec) -> Self {
-        /*
-        let octets = st.to_bytes();
-        let raw_pri_header = octets.get(..PRIMARY_HEADER_SIZE).unwrap(); // TODO: treat this
-        let raw_data_field = octets.get(PRIMARY_HEADER_SIZE..).unwrap(); // TODO: treat this
-
-        let primary_header = PrimaryHeader::new_from_octet_string(BitVec::from_bytes(raw_pri_header));
-        let data_field = DataField::new_from_octet_string(BitVec::from_bytes(raw_data_field));
-
-        Self {primary_header, data_field}
-        */
-        unimplemented!()
-    }
     
-    pub fn builder() -> Builder {
+    pub fn builder<'a>() -> Builder<'a> {
         Builder::default()
     }
 
-    pub fn to_bits(&self) -> BitVec {
-        // Order: Primary Header - Data Field
-        let mut bit_rep = BitVec::new();
+    pub fn to_bits(&self) -> BitArr!(for 65542, in u8) {
+        let mut bit_rep = bitarr![u8, LocalBits; 0; 65542];
 
-        bit_rep.extend(&self.primary_header.to_bits());
-        bit_rep.extend(&self.data_field.to_bits());
+        for (i, mut x) in bit_rep.iter_mut().enumerate() {
+            
+            *x = self.primary_header.data_length[i];
+            
+        }
+
+        //bit_rep.extend(&self.primary_header.to_bits());
+        //bit_rep.extend(&self.data_field.to_bits());
 
         bit_rep
     }
