@@ -21,37 +21,32 @@ impl PrimaryHeader {
         let binding = [size as u16];
         let v: &BitSlice<u16, Msb0> = BitSlice::from_slice(&binding);
         
+        
         let m = self.data_length.as_mut_bitslice();
         m.clone_from_bitslice(v);
     }
 
-    pub fn to_bits(&self) -> BitArr!(for 16) {
-        let mut bit_rep = bitarr!(0; 16);
+    pub fn to_bits(&self) -> BitArr!(for 48) {
+        let mut bit_rep = bitarr!(0; 48);
 
-        for mut mb in bit_rep[..3].iter_mut() {
-            for b in self.version_number[..3].iter() {
-                *mb = *b;
-            }
+        for (i, mut mb) in bit_rep[..3].iter_mut().enumerate() {
+            *mb = self.version_number[i];
+        }
+        
+
+        let id = self.id.to_bits();
+        for (i, mut mb) in bit_rep[3..16].iter_mut().enumerate() {
+            *mb = id[i];
         }
 
-        for mut mb in bit_rep[3..16].iter_mut() {
-            for b in self.id.to_bits().iter() {
-                *mb = *b;
-            }
+        let sc = self.sequence_control.to_bits();
+        for (i, mut mb) in bit_rep[16..32].iter_mut().enumerate() {
+            *mb = sc[i];
         }
 
-        for mut mb in bit_rep[16..32].iter_mut() {
-            for b in self.sequence_control.to_bits()[..16].iter() {
-                *mb = *b;
-            }
+        for (i, mut mb) in bit_rep[32..48].iter_mut().enumerate() {
+            *mb = self.data_length[i];
         }
-
-        for mut mb in bit_rep[32..48].iter_mut() {
-            for b in self.data_length.iter() {
-                *mb = *b;
-            }
-        }
-
 
         bit_rep
     }
@@ -97,7 +92,7 @@ pub struct Identification {
     app_process_id:  BitArray // 11 bits // For Idle Packets: '11111111111'
 }
 
-impl Identification {
+impl<'a> Identification {
     pub fn new(t: PacketType, head: SecHeaderFlag, app: BitArray ) -> Result<Self, SPPError> {
         if app.len() != 11 {
             return Err(SPPError::APIDLenMismatch); // APID is more than 11 bits
@@ -110,9 +105,9 @@ impl Identification {
         Self { packet_type: t, sec_header_flag: SecHeaderFlag::Idle, 
             app_process_id: bitarr![1; 11]}
     }
-
-    fn to_bits(&self) -> BitArr!(for 16) {
-        let mut aux = bitarr!(0;16);
+    
+    pub fn to_bits(&self) -> BitArray {
+        let mut aux = bitarr!(0;13);
         {
             let mut pt = aux.get_mut(0).unwrap();
             *pt = self.packet_type.to_bool();
@@ -121,11 +116,9 @@ impl Identification {
             let mut sf = aux.get_mut(1).unwrap();
             *sf = self.sec_header_flag.to_bool();
         }
-        
-        for mut mb in aux[2..].iter_mut() {
-            for b in self.app_process_id[..11].iter() {
-                *mb = *b;
-            }
+
+        for (i, mut mb) in aux[2..13].iter_mut().enumerate() {    
+            *mb = self.app_process_id[i];
         }
 
         aux
@@ -179,16 +172,14 @@ impl SequenceControl {
     fn to_bits(&self) -> BitArr!(for 16) {
         let mut aux = bitarr!(0; 16);
 
-        for mut mb in aux.iter_mut() {
-            for b in self.sequence_flags.to_bool().iter() {
-                *mb = *b;
-            }
+        let sf = self.sequence_flags.to_bool();
+        for (i, mut mb) in aux[..2].iter_mut().enumerate() {
+            *mb = sf[i];
         }
         
-        for mut mb in aux[2..].iter_mut() {
-            for b in self.sequence_count_pkg_name[..14].iter() {
-                *mb = *b;
-            }
+        let pk = self.sequence_count_pkg_name;
+        for (i, mut mb) in aux[2..16].iter_mut().enumerate() {
+            *mb = pk[i];
         }
         
         aux

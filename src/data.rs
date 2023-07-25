@@ -3,22 +3,41 @@ use bitvec::prelude::*;
 const MAX_DATA: usize = 65536;
 type DataSize = BitArr!(for MAX_DATA);
 
+#[derive(Debug, Default, Clone)]
+pub struct UserData<'a> {
+    pub data: &'a BitSlice,
+}
+
+impl<'a> UserData<'a> {
+    pub fn new(data: &'a BitSlice) -> Self {
+        Self { data: data }
+    }
+
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    fn iter(&self) -> bitvec::slice::Iter<'_, usize, Lsb0> {
+        self.data.iter()
+    }
+}
+
 
 #[derive(Debug, Default)]
-pub struct DataField {
-    sec_header: Option<SecondaryHeader>, // WARN: 4.1.4.2.1.3 | See Notes 2
+pub struct DataField<'a> {
+    sec_header: Option<SecondaryHeader<'a>>, // WARN: 4.1.4.2.1.3 | See Notes 2
     sec_header_size: usize,
-    user_data: Option<DataSize>, // WARN: shall contain at least one octet.
+    user_data: Option<UserData<'a>>, // WARN: shall contain at least one octet.
     user_data_size: usize,
 }
 
-impl DataField {
+impl<'a> DataField<'a> {
     pub fn new() -> Self {
         Self { sec_header: None, user_data: None, ..Default::default() }
     }
 
     pub fn len(&self) -> usize {
-        let ud_size = if let Some(_s) = self.user_data {
+        let ud_size = if let Some(_s) = &self.user_data {
             self.user_data_size
         } else {
             0
@@ -33,20 +52,18 @@ impl DataField {
         sh_size + ud_size
     }
 
-    pub fn user_data(&mut self, data: Option<&BitSlice<u8>>) {
-        let mut a = bitarr!(0;MAX_DATA);
-        
+    pub fn user_data(&mut self, data: Option<&'a UserData>) {
         if let Some(data) = data {
-            a.clone_from_bitslice(data);
+            
             self.user_data_size = data.len();
-            self.user_data = Some(a);
+            self.user_data = Some(data.clone());
         } else {
             self.user_data_size = 0;
             self.user_data = None;
         }
     }
 
-    pub fn sec_header(&mut self, data: &Option<SecondaryHeader>) {
+    pub fn sec_header(&mut self, data: Option<&'a SecondaryHeader>) {
         
         if let Some(data) = data {
             self.sec_header_size = data.len();
@@ -64,38 +81,35 @@ impl DataField {
 
 
         if let Some(head) = &self.sec_header {
+            let head = head.to_bits();
             fin_sec_header = head.len();
-
-            for mut mb in bits.iter_mut() {
-                for b in head.to_bits().iter() {
-                    *mb = *b;
-                }
+            for (i, mut mb) in bits[..fin_sec_header].iter_mut().enumerate() {
+                *mb = head[i]
             }
-
         } 
+
         if let Some(data) = &self.user_data {
-            for mut mb in bits[fin_sec_header..].iter_mut() {
-                for b in data.iter() {
-                    *mb = *b;
-                }
+            for (i, mut mb) in bits[fin_sec_header..data.len()].iter_mut().enumerate() {
+                *mb = data.data[i];
             }
         }
 
+        
         bits
     }
 }
 
 // https://sanaregistry.org/r/space_packet_protocol_secondary_header_format_document : Still a canditate
 #[derive(Clone, Debug, Default)]
-pub struct SecondaryHeader {
-    time_code: Option<DataSize>, // TODO: Implement timecode formats See Note 4.1.4.2.2.2
+pub struct SecondaryHeader<'a> {
+    time_code: Option<&'a BitSlice>, // TODO: Implement timecode formats See Note 4.1.4.2.2.2
     time_code_size: usize,
-    ancillary: Option<DataSize>, // WARN: 4.1.4.3.2
+    ancillary: Option<&'a BitSlice>, // WARN: 4.1.4.3.2
     ancillary_size: usize,
 }
 
-impl SecondaryHeader {
-    pub fn new(time_code: Option<DataSize>, ancillary: Option<DataSize>) -> Self {
+impl<'a> SecondaryHeader<'a> {
+    pub fn new(time_code: Option<&'a BitSlice>, ancillary: Option<&'a BitSlice>) -> Self {
         let (time_code_size, time_code) = if let Some(data) = time_code {
             (data.len(), Some(data.clone()))
         } else {
