@@ -16,10 +16,6 @@ impl<'a> UserData<'a> {
     fn len(&self) -> usize {
         self.data.len()
     }
-
-    fn iter(&self) -> bitvec::slice::Iter<'_, usize, Lsb0> {
-        self.data.iter()
-    }
 }
 
 
