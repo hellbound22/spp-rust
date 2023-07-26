@@ -1,6 +1,6 @@
 use bitvec::prelude::*;
 
-use crate::{OCTET, PRIMARY_HEADER_SIZE, MAX_DATA_SIZE};
+use crate::{OCTET, PRIMARY_HEADER_SIZE, MAX_DATA_SIZE, MAX_SP_SIZE};
 use crate::pri_header::{Identification, SequenceControl, PrimaryHeader, SecHeaderFlag};
 use crate::data::{DataField, SecondaryHeader, UserData};
 use crate::errors::SPPError;
@@ -12,9 +12,14 @@ pub struct Builder<'a> {
     sec_head: Option<&'a SecondaryHeader<'a>>,
     user_data: Option<&'a UserData<'a>>,
     idle: bool,
+    _aux: BitArr!(for MAX_DATA_SIZE + 48),
 }
 
 impl<'a> Builder<'a> {
+    fn new() -> Self {
+        Self { _aux: bitarr!(0; MAX_SP_SIZE), ..Default::default() }
+    }
+
     pub fn idle(&mut self, set: bool) {
         self.idle = set
     }
@@ -35,7 +40,7 @@ impl<'a> Builder<'a> {
         self.user_data = user_data
     }
 
-    pub fn build(&mut self) -> Result<SpacePacket, SPPError> {
+    pub fn build(mut self) -> Result<SpacePacket<'a>, SPPError> {
         let (id, seq) = match (&self.id, &self.seq) {
             (None, None) => return Err(SPPError::MandatoryFieldNotPresent),
             (None, _) => return Err(SPPError::MandatoryFieldNotPresent),
@@ -70,7 +75,7 @@ impl<'a> Builder<'a> {
 
         pri_head.data_lenght(final_lenght);
         
-        let sp: SpacePacket<'_> = SpacePacket::new(pri_head, data);
+        let sp: SpacePacket<'_> = SpacePacket::new(pri_head, data, self._aux);
 
         if sp.data_field.len() < OCTET {
             return Err(SPPError::MinDataLen); // Data field must be at least 1 octet long
@@ -85,36 +90,27 @@ impl<'a> Builder<'a> {
 pub struct SpacePacket<'a> {
     primary_header: PrimaryHeader,
     data_field: DataField<'a>,
+    _aux: BitArr!(for MAX_DATA_SIZE + 48),
 }
 
 
 impl<'a> SpacePacket<'a> {
-    fn new(ph: PrimaryHeader, df: DataField<'a>) -> Self {
-        Self { primary_header: ph, data_field: df }
+    fn new(ph: PrimaryHeader, df: DataField<'a>, _aux: BitArr!(for MAX_SP_SIZE)) -> Self {
+        Self { primary_header: ph, data_field: df, _aux}
     }
     
     pub fn builder() -> Builder<'static> {
-        Builder::default()
+        Builder::new()
     }
 
-    pub fn to_bits(&self) -> (BitArr!(for 65542, in u8), usize) {
-        let mut bit_rep = bitarr![u8, LocalBits; 0; 65542];
+    pub fn to_bits(&mut self) -> &BitSlice {        
+        self.primary_header.to_bits(&mut self._aux);
         
-        let ph = self.primary_header.to_bits();
+        let mut l = 48;
         
-        for (i, mut mb) in bit_rep[..48].iter_mut().enumerate() {
-            *mb = ph[i];
-        }
-  
-        let l = 48 + self.data_field.len();
-        
-        let df = self.data_field.to_bits();
-        
-        for (i, mut mb) in bit_rep[48..l].iter_mut().enumerate() {
-            *mb = df[i];
-        }
+        self.data_field.to_bits(&mut (&mut l, &mut self._aux));
 
-        (bit_rep, l)
+        &self._aux[..l]
     }
 
     pub fn len(&self) -> usize {

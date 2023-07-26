@@ -3,7 +3,7 @@ name = "spp-rust"
 description = "An implementation of the CCSDS 133.0-B-2 Recommended Standard"
 repository = "https://github.com/hellbound22/spp-rust"
 authors = ["Rodrigo Mauricio <rodrigomauricio@protonmail.com>"]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "GPL-3.0"
 

@@ -2,7 +2,7 @@
 pub enum SPPError {
     MaxDataSizeExedded,
     MinDataLen,
-    APIDLenMismatch,
+    APIDLenMismatch(usize),
     SequenceControlLenMismatch,
     SecondaryHeaderNotPresent,
     MandatoryFieldNotPresent,

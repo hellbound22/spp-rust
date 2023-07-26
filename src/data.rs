@@ -5,7 +5,7 @@ type DataSize = BitArr!(for MAX_DATA);
 
 #[derive(Debug, Default, Clone)]
 pub struct UserData<'a> {
-    pub data: &'a BitSlice,
+    data: &'a BitSlice,
 }
 
 impl<'a> UserData<'a> {
@@ -16,15 +16,17 @@ impl<'a> UserData<'a> {
     fn len(&self) -> usize {
         self.data.len()
     }
+    fn to_bits(&self, _aux: &mut (&mut usize, &'a mut BitSlice)) {
+        _aux.1[*_aux.0..*_aux.0 + self.len()].copy_from_bitslice(self.data);
+        *_aux.0 += self.len();
+    }
 }
 
 
 #[derive(Debug, Default)]
 pub struct DataField<'a> {
     sec_header: Option<&'a SecondaryHeader<'a>>, // WARN: 4.1.4.2.1.3 | See Notes 2
-    //sec_header_size: usize,
     user_data: Option<&'a UserData<'a>>, // WARN: shall contain at least one octet.
-    //user_data_size: usize,
 }
 
 impl<'a> DataField<'a> {
@@ -56,33 +58,18 @@ impl<'a> DataField<'a> {
         self.sec_header = data;
     }
 
-    pub fn to_bits(&self) -> DataSize {
-        let mut bits = bitarr!(0; MAX_DATA);
-
-        let mut fin_sec_header: usize = 0;
-
-
-        if let Some(head) = &self.sec_header {
-            let head = head.to_bits();
-            fin_sec_header = head.len();
-            for (i, mut mb) in bits[..fin_sec_header].iter_mut().enumerate() {
-                *mb = head[i]
-            }
-        } 
-
-        if let Some(data) = &self.user_data {
-            for (i, mut mb) in bits[fin_sec_header..data.len()].iter_mut().enumerate() {
-                *mb = data.data[i];
-            }
+    pub fn to_bits(&self, _aux: &mut (&mut usize, &'a mut BitSlice)) {
+        if let Some(sh) = self.sec_header {
+            sh.to_bits(_aux);
         }
-
-        
-        bits
+        if let Some(ud) = self.user_data {
+            ud.to_bits(_aux);
+        }
     }
 }
 
 // https://sanaregistry.org/r/space_packet_protocol_secondary_header_format_document : Still a canditate
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct SecondaryHeader<'a> {
     time_code: Option<&'a BitSlice>, // TODO: Implement timecode formats See Note 4.1.4.2.2.2
     ancillary: Option<&'a BitSlice>, // WARN: 4.1.4.3.2
@@ -90,7 +77,7 @@ pub struct SecondaryHeader<'a> {
 
 impl<'a> SecondaryHeader<'a> {
     pub fn new(time_code: Option<&'a BitSlice>, ancillary: Option<&'a BitSlice>) -> Self {
-        Self { time_code, ancillary }
+        Self { time_code, ancillary, ..Default::default() }
     }
     pub fn len(&self) -> usize {
         let tc_size = if let Some(s) = &self.time_code {
@@ -108,31 +95,14 @@ impl<'a> SecondaryHeader<'a> {
         tc_size + anc_size
     }
 
-    fn to_bits(&self) -> DataSize {
-        let mut bits = bitarr!(0; MAX_DATA);
+    fn to_bits(&self, _aux: &mut (&mut usize, &'a mut BitSlice)) {
+        let tc = self.time_code.unwrap_or_default();
+        let ac = self.ancillary.unwrap_or_default();
 
-        let mut fin_sec_header: usize = 0;
 
-
-        if let Some(tc) = &self.time_code {
-            fin_sec_header = tc.len();
-
-            for mut mb in bits.iter_mut() {
-                for b in tc.iter() {
-                    *mb = *b;
-                }
-            }
-
-        } 
-        if let Some(data) = &self.ancillary {
-            for mut mb in bits[fin_sec_header..].iter_mut() {
-                for b in data.iter() {
-                    *mb = *b;
-                }
-            }
-        }
-
-        bits
+        _aux.1[*_aux.0..tc.len()].copy_from_bitslice(tc);
+        _aux.1[*_aux.0 + tc.len()..].copy_from_bitslice(ac);
+        *_aux.0 += self.len();
     }
 }
 
