@@ -21,10 +21,10 @@ impl<'a> UserData<'a> {
 
 #[derive(Debug, Default)]
 pub struct DataField<'a> {
-    sec_header: Option<SecondaryHeader<'a>>, // WARN: 4.1.4.2.1.3 | See Notes 2
-    sec_header_size: usize,
-    user_data: Option<UserData<'a>>, // WARN: shall contain at least one octet.
-    user_data_size: usize,
+    sec_header: Option<&'a SecondaryHeader<'a>>, // WARN: 4.1.4.2.1.3 | See Notes 2
+    //sec_header_size: usize,
+    user_data: Option<&'a UserData<'a>>, // WARN: shall contain at least one octet.
+    //user_data_size: usize,
 }
 
 impl<'a> DataField<'a> {
@@ -33,14 +33,14 @@ impl<'a> DataField<'a> {
     }
 
     pub fn len(&self) -> usize {
-        let ud_size = if let Some(_s) = &self.user_data {
-            self.user_data_size
+        let ud_size = if let Some(s) = &self.user_data {
+            s.len()
         } else {
             0
         };
 
-        let sh_size = if let Some(_s) = &self.sec_header {
-            self.sec_header_size
+        let sh_size = if let Some(s) = &self.sec_header {
+            s.len()
         } else {
             0
         };
@@ -49,25 +49,11 @@ impl<'a> DataField<'a> {
     }
 
     pub fn user_data(&mut self, data: Option<&'a UserData>) {
-        if let Some(data) = data {
-            
-            self.user_data_size = data.len();
-            self.user_data = Some(data.clone());
-        } else {
-            self.user_data_size = 0;
-            self.user_data = None;
-        }
+        self.user_data = data;
     }
 
     pub fn sec_header(&mut self, data: Option<&'a SecondaryHeader>) {
-        
-        if let Some(data) = data {
-            self.sec_header_size = data.len();
-            self.sec_header = Some(data.clone());
-        } else {
-            self.sec_header_size = 0;
-            self.sec_header = None;
-        }
+        self.sec_header = data;
     }
 
     pub fn to_bits(&self) -> DataSize {
@@ -99,29 +85,27 @@ impl<'a> DataField<'a> {
 #[derive(Clone, Debug, Default)]
 pub struct SecondaryHeader<'a> {
     time_code: Option<&'a BitSlice>, // TODO: Implement timecode formats See Note 4.1.4.2.2.2
-    time_code_size: usize,
     ancillary: Option<&'a BitSlice>, // WARN: 4.1.4.3.2
-    ancillary_size: usize,
 }
 
 impl<'a> SecondaryHeader<'a> {
     pub fn new(time_code: Option<&'a BitSlice>, ancillary: Option<&'a BitSlice>) -> Self {
-        let (time_code_size, time_code) = if let Some(data) = time_code {
-            (data.len(), Some(data.clone()))
-        } else {
-            (0, None)
-        };
-
-        let (ancillary_size, ancillary) = if let Some(data) = ancillary {
-            (data.len(), Some(data.clone()))
-        } else {
-            (0, None)
-        };
-
-        Self { time_code, ancillary, time_code_size, ancillary_size }
+        Self { time_code, ancillary }
     }
     pub fn len(&self) -> usize {
-        self.ancillary_size + self.time_code_size
+        let tc_size = if let Some(s) = &self.time_code {
+            s.len()
+        } else {
+            0
+        };
+
+        let anc_size = if let Some(s) = &self.ancillary {
+            s.len()
+        } else {
+            0
+        };
+
+        tc_size + anc_size
     }
 
     fn to_bits(&self) -> DataSize {
