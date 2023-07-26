@@ -12,12 +12,12 @@ pub struct Builder<'a> {
     sec_head: Option<&'a SecondaryHeader<'a>>,
     user_data: Option<&'a UserData<'a>>,
     idle: bool,
-    _aux: BitArr!(for MAX_DATA_SIZE + 48),
+    _aux: BitArr!(for MAX_DATA_SIZE + 48, in u8),
 }
 
 impl<'a> Builder<'a> {
     fn new() -> Self {
-        Self { _aux: bitarr!(0; MAX_SP_SIZE), ..Default::default() }
+        Self { _aux: bitarr!(u8, LocalBits; 0; MAX_SP_SIZE), ..Default::default() }
     }
 
     pub fn idle(&mut self, set: bool) {
@@ -90,12 +90,12 @@ impl<'a> Builder<'a> {
 pub struct SpacePacket<'a> {
     primary_header: PrimaryHeader,
     data_field: DataField<'a>,
-    _aux: BitArr!(for MAX_DATA_SIZE + 48),
+    _aux: BitArr!(for MAX_DATA_SIZE + 48, in u8),
 }
 
 
 impl<'a> SpacePacket<'a> {
-    fn new(ph: PrimaryHeader, df: DataField<'a>, _aux: BitArr!(for MAX_SP_SIZE)) -> Self {
+    fn new(ph: PrimaryHeader, df: DataField<'a>, _aux: BitArr!(for MAX_SP_SIZE, in u8)) -> Self {
         Self { primary_header: ph, data_field: df, _aux}
     }
     
@@ -103,7 +103,7 @@ impl<'a> SpacePacket<'a> {
         Builder::new()
     }
 
-    pub fn to_bits(&mut self) -> &BitSlice {        
+    pub fn to_bits(&mut self) -> &BitSlice<u8> {        
         self.primary_header.to_bits(&mut self._aux);
         
         let mut l = 48;
@@ -115,5 +115,20 @@ impl<'a> SpacePacket<'a> {
 
     pub fn len(&self) -> usize {
         self.data_field.len() + PRIMARY_HEADER_SIZE
+    }
+}
+
+pub struct OctetStringSpacePacket {
+    primary_header: PrimaryHeader,
+    data_field: BitArr!(for MAX_DATA_SIZE),
+}
+
+impl OctetStringSpacePacket {
+    pub fn new_from_slice(s: &[u8]) -> Self {
+        let bits: &BitSlice<u8, LocalBits> = BitSlice::from_slice(s);
+
+        let data_field = &bits[48..];
+
+        unimplemented!()
     }
 }

@@ -3,13 +3,13 @@
 
 [Link to the standard](https://public.ccsds.org/Pubs/133x0b2e1.pdf)
 
-`[no_std]` compliant, although it uses the `bitvec` crate
+`[no_std]` compliant, although it uses the `bitvec` crate (`default-features` are disabaled)
 
 
 ### Roadmap
 
 - [ ] Documentation
 - [ ] Tests
-- [ ] Bemchmarks
+- [ ] Benchmarks
 - [ ] Octet String Service
 - [ ] Data loss indicator (?, optional, present only on Octet String Service)

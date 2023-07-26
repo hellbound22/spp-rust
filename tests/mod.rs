@@ -12,13 +12,13 @@ fn test_output() {
 
     let id = Identification::new_idle(PacketType::Telemetry);
 
-    let ba =  bitarr!(usize, LocalBits; 0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1);
+    let ba =  bitarr!(u8, LocalBits; 0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1);
     let seq = SequenceControl::new(SeqFlags::Unsegmented, ba).unwrap();
     
     builder.identification(Some(id));
     builder.sequence_control(Some(seq));
 
-    let data = bits![0,1,1,1,1,1,1,0];
+    let data = bits![u8, LocalBits; 0,1,1,1,1,1,1,0];
     let ud = UserData::new(&data);
     builder.user_data(Some(&ud));
 
@@ -33,11 +33,11 @@ fn test_output() {
 fn test_sec_header_req() {
     let mut builder = SpacePacket::builder();
 
-    let id = Identification::new(PacketType::Telemetry, spp_rust::pri_header::SecHeaderFlag::Present, bits![0; 11]).unwrap();
-    let ba =  bitarr!(usize, LocalBits; 0;14);
+    let id = Identification::new(PacketType::Telemetry, spp_rust::pri_header::SecHeaderFlag::Present, bits![u8, LocalBits; 0; 11]).unwrap();
+    let ba =  bitarr!(u8, LocalBits; 0;14);
     let seq = SequenceControl::new(SeqFlags::Unsegmented, ba).unwrap();
 
-    let tc = bits![0,0,0,0];
+    let tc = bits![u8, LocalBits; 0,0,0,0];
 
     let sec_head = SecondaryHeader::new(Some(tc), None);
     
@@ -45,7 +45,7 @@ fn test_sec_header_req() {
     builder.sequence_control(Some(seq));
     builder.secondary_header(Some(&sec_head));
     
-    let data = bitarr!(usize, LocalBits; 1; 65536);
+    let data = bitarr!(u8, LocalBits; 1; 65536);
     let ud = UserData::new(&data);
     builder.user_data(Some(&ud));
 
