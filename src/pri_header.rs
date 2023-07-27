@@ -7,12 +7,12 @@ pub struct PrimaryHeader {
     version_number: BitArr!(for 3, in u8),             // 3 bits
     id: Identification,                 // 13 bits
     sequence_control: SequenceControl,  // 16 bits
-    pub data_length: BitArr!(for 16, in u8),                // 16 bits
+    pub data_length: BitArr!(for 16, in u8, Msb0),                // 16 bits
 }
 
 impl PrimaryHeader {
     pub fn new(id: &Identification, seq: &SequenceControl) -> Self {
-        Self {version_number: bitarr![u8, LocalBits; 0; 3], id: id.clone(), sequence_control: seq.clone(), data_length: bitarr![u8, LocalBits; 0; 16]}
+        Self {version_number: bitarr![u8, LocalBits; 0; 3], id: id.clone(), sequence_control: seq.clone(), data_length: bitarr![u8, Msb0; 0; 16]}
     }
 
     pub fn new_from_slice(s: &BitSlice<u8>) -> Self {
@@ -22,8 +22,8 @@ impl PrimaryHeader {
         let id = Identification::new_from_slice(&s[3..16]);
         let sequence_control = SequenceControl::new_from_slice(&s[16..32]);
 
-        let mut data_length = bitarr!(u8, LocalBits; 0; 16);
-        data_length[32..48].copy_from_bitslice(&s[32..48]);
+        let mut data_length = bitarr!(u8, Msb0; 0; 16);
+        data_length[..16].clone_from_bitslice(&s[32..48]);
 
         Self { version_number, id, sequence_control, data_length }
     }
@@ -31,12 +31,15 @@ impl PrimaryHeader {
     // NOTE: 4.1.3.5
     pub fn data_lenght(&mut self, size: usize) {
         // TODO: this does not fail if size is bigger than u16_max
-        let binding = [size.to_be()];
-        let v: &BitSlice<usize, LocalBits> = BitSlice::from_slice(&binding);
+        let u = size as u16;
+        let binding = [u];
+
+        let v: &BitSlice<u16, LocalBits> = BitSlice::from_slice(&binding);
         
         
         let m = self.data_length.as_mut_bitslice();
         m.clone_from_bitslice(v);
+        m.reverse();
     }
 
     pub fn to_bits<'a>(&self, _aux: &'a mut BitSlice<u8>) {
@@ -46,7 +49,7 @@ impl PrimaryHeader {
 
         self.sequence_control.to_bits(&mut _aux[16..32]);
 
-        _aux[32..48].copy_from_bitslice(&self.data_length[..16]);
+        _aux[32..48].clone_from_bitslice(&self.data_length[..16]);
     }
 
 }
@@ -58,6 +61,13 @@ pub enum PacketType {
 }
 
 impl PacketType {
+    fn from_bool(b: bool) -> Self {
+        match b {
+            true => Self::Telecommand,
+            false => Self::Telemetry,
+        }
+    }
+
     fn to_bool(&self) -> bool {
         match self {
             Self::Telecommand => true,
@@ -74,6 +84,12 @@ pub enum SecHeaderFlag {
 }
 
 impl SecHeaderFlag {
+    fn from_bool(b: bool) -> Self {
+        match b {
+            true => Self::Present,
+            false => Self::NotPresent,
+        }
+    }
     fn to_bool(&self) -> bool {
         match self {
             Self::Present => true,
@@ -108,7 +124,13 @@ impl<'a> Identification {
     }
 
     pub fn new_from_slice(s: &BitSlice<u8>) -> Self {
-        unimplemented!()
+        let packet_type = PacketType::from_bool(s[0]);
+        let sec_header_flag = SecHeaderFlag::from_bool(s[1]);
+
+        let mut app_process_id = bitarr!(u8, LocalBits; 0; 11);
+        app_process_id[..11].copy_from_bitslice(&s[2..13]);
+        
+        Self { packet_type, sec_header_flag, app_process_id }
     }
     
     pub fn to_bits(&self, _aux: &'a mut BitSlice<u8>) {
@@ -129,6 +151,15 @@ pub enum SeqFlags {
 }
 
 impl SeqFlags {
+    fn from_slice(b: &BitSlice<u8>) -> Self {
+        match [b[0], b[1]] {
+            [false, false] => Self::Continuation,
+            [false, true] => Self::First,
+            [true, false] => Self::Last,
+            [true, true] => Self::Unsegmented,
+        }
+    }
+
     fn to_bool(&self) -> &'static BitSlice<u8> {
         match self {
             Self::Continuation => bits![static u8, LocalBits; 0, 0],
@@ -164,7 +195,12 @@ impl SequenceControl {
     }
 
     fn new_from_slice(s: &BitSlice<u8>) -> Self {
-        unimplemented!()
+        let sequence_flags = SeqFlags::from_slice(&s[..2]);
+
+        let mut sequence_count_pkg_name = bitarr!(u8, LocalBits; 0; 14);
+        sequence_count_pkg_name[..14].copy_from_bitslice(&s[2..16]);
+        
+        Self {sequence_flags,  sequence_count_pkg_name}
     }
 
     fn to_bits<'a>(&self, _aux: &'a mut BitSlice<u8>) {

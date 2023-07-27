@@ -11,5 +11,5 @@
 - [ ] Documentation
 - [ ] Tests
 - [ ] Benchmarks
-- [ ] Octet String Service
+- [x] Octet String Service
 - [ ] Data loss indicator (?, optional, present only on Octet String Service)

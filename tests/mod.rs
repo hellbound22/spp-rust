@@ -1,6 +1,6 @@
 use bitvec::prelude::*;
 
-use spp_rust::{packet::SpacePacket, pri_header::{Identification, PacketType, SequenceControl, SeqFlags}, data::{SecondaryHeader, UserData}};
+use spp_rust::{packet::{SpacePacket, OctetStringSpacePacket}, pri_header::{Identification, PacketType, SequenceControl, SeqFlags}, data::{SecondaryHeader, UserData}};
 
 const MIN_SP_SIZE_BITS: usize = 7 * 8;
 const MAX_SP_SIZE_BITS: usize = 65542 * 8;
@@ -18,7 +18,7 @@ fn test_output() {
     builder.identification(Some(id));
     builder.sequence_control(Some(seq));
 
-    let data = bits![u8, LocalBits; 0,1,1,1,1,1,1,0];
+    let data = BitSlice::from_slice("Teste ooooi".as_bytes());
     let ud = UserData::new(&data);
     builder.user_data(Some(&ud));
 
@@ -27,6 +27,10 @@ fn test_output() {
     let bits = sp.to_bits();
 
     assert_eq!(bits.len(), MIN_SP_SIZE_BITS);
+
+    let s = OctetStringSpacePacket::new_from_slice(bits);
+    
+    let data: Vec<char> = s.data_field.domain().map(|x| x as char).collect();
 }
 
 #[test]

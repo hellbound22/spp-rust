@@ -118,17 +118,21 @@ impl<'a> SpacePacket<'a> {
     }
 }
 
-pub struct OctetStringSpacePacket {
-    primary_header: PrimaryHeader,
-    data_field: BitArr!(for MAX_DATA_SIZE),
+pub struct OctetStringSpacePacket<'a> {
+    pub primary_header: PrimaryHeader,
+    pub data_field: &'a BitSlice<u8>,
 }
 
-impl OctetStringSpacePacket {
-    pub fn new_from_slice(s: &[u8]) -> Self {
-        let bits: &BitSlice<u8, LocalBits> = BitSlice::from_slice(s);
+impl<'a> OctetStringSpacePacket<'a> {
+    pub fn new_from_slice(s: &'a BitSlice<u8>) -> Self {
+        let primary_header = PrimaryHeader::new_from_slice(&s[..48]);
 
-        let data_field = &bits[48..];
+        let dl = (primary_header.data_length.data[0].to_le() 
+                        + primary_header.data_length.data[1].to_le()) 
+                        * OCTET as u8;
+                        
+        let data_field = &s[48..48 + dl as usize];
 
-        unimplemented!()
+        Self { primary_header, data_field }
     }
 }
